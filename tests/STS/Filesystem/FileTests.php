@@ -1,4 +1,5 @@
-<?php namespace STS\Filesystem;
+<?php
+namespace STS\Filesystem;
 
 use League\Flysystem\Config;
 use League\Flysystem\File;
@@ -11,23 +12,23 @@ class FileTests extends TestCase
     /** @var Filesystem */
     protected $filesystem;
 
-    public function setup()
+    public function setup(): void
     {
         clearstatcache();
         $fs = new VirtualFilesystemAdapter();
         $fs->deleteDir('files');
-        $fs->createDir('files', new Config());
+        $fs->createDirectory('files', new Config());
         $fs->write('file.txt', 'contents', new Config());
         $this->filesystem = new Filesystem($fs);
     }
 
-    public function tearDown()
+    public function tearDown(): void
     {
         try {
             $this->filesystem->delete('file.txt');
         } catch (FileNotFoundException $e) {
         }
-        $this->filesystem->deleteDir('files');
+        $this->filesystem->deleteDirectory('files');
     }
 
     /**
@@ -131,10 +132,10 @@ class FileTests extends TestCase
     public function can_rename_file()
     {
         $file = $this->getFile();
-        $result = $file->rename('files/renamed.txt');
+        $result = $file->move('files/renamed.txt');
         $this->assertTrue($result);
-        $this->assertFalse($this->filesystem->has('file.txt'));
-        $this->assertTrue($this->filesystem->has('files/renamed.txt'));
+        $this->assertFalse($this->filesystem->fileExists('file.txt'));
+        $this->assertTrue($this->filesystem->fileExists('files/renamed.txt'));
         $this->assertEquals('files/renamed.txt', $file->getPath());
     }
 
@@ -158,7 +159,7 @@ class FileTests extends TestCase
         $filesystem = new Filesystem($adapter);
         /** @var File $file */
         $file = $filesystem->get('file.txt', new File());
-        $result = $file->rename('files/renamed.txt');
+        $result = $file->move('files/renamed.txt');
         $this->assertFalse($result);
         $this->assertEquals('file.txt', $file->getPath());
     }
@@ -168,8 +169,8 @@ class FileTests extends TestCase
     {
         $file = $this->getFile();
         $copied = $file->copy('files/copied.txt');
-        $this->assertTrue($this->filesystem->has('file.txt'));
-        $this->assertTrue($this->filesystem->has('files/copied.txt'));
+        $this->assertTrue($this->filesystem->fileExists('file.txt'));
+        $this->assertTrue($this->filesystem->fileExists('files/copied.txt'));
         $this->assertEquals('file.txt', $file->getPath());
         $this->assertEquals('files/copied.txt', $copied->getPath());
     }
@@ -202,7 +203,7 @@ class FileTests extends TestCase
     public function check_file_timestamp()
     {
         $file = $this->getFile();
-        $timestamp = $this->filesystem->getTimestamp($file->getPath());
+        $timestamp = $this->filesystem->lastModified($file->getPath());
         $this->assertEquals($timestamp, $file->getTimestamp());
     }
 
@@ -210,7 +211,7 @@ class FileTests extends TestCase
     public function check_file_mimetype()
     {
         $file = $this->getFile();
-        $mimetype = $this->filesystem->getMimetype($file->getPath());
+        $mimetype = $this->filesystem->mimetype($file->getPath());
         $this->assertEquals($mimetype, $file->getMimetype());
     }
 
@@ -218,7 +219,7 @@ class FileTests extends TestCase
     public function check_file_visibility()
     {
         $file = $this->getFile();
-        $visibility = $this->filesystem->getVisibility($file->getPath());
+        $visibility = $this->filesystem->visibility($file->getPath());
         $this->assertEquals($visibility, $file->getVisibility());
     }
 
@@ -234,7 +235,7 @@ class FileTests extends TestCase
     public function check_file_size()
     {
         $file = $this->getFile();
-        $size = $this->filesystem->getSize($file->getPath());
+        $size = $this->filesystem->fileSize($file->getPath());
         $this->assertEquals($size, $file->getSize());
     }
 
@@ -243,15 +244,15 @@ class FileTests extends TestCase
     {
         $file = $this->getFile();
         $file->delete();
-        $this->assertFalse($this->filesystem->has('file.txt'));
+        $this->assertFalse($this->filesystem->fileExists('file.txt'));
     }
 
     /** @test */
     public function ensure_we_can_delete_a_nested_directory()
     {
-        $this->filesystem->createDir('files/dir/nested');
+        $this->filesystem->createDirectory('files/dir/nested');
 
-        $this->assertTrue($this->filesystem->deleteDir('files/dir'));
-        $this->assertFalse($this->filesystem->has('files/dir'));
+        $this->assertTrue((bool) $this->filesystem->deleteDirectory('files/dir'));
+        $this->assertFalse($this->filesystem->directoryExists('files/dir'));
     }
 }

@@ -1,8 +1,10 @@
 <?php namespace STS\Filesystem;
 
 use Illuminate\Support\Str;
-use League\Flysystem\Adapter\Local;
+use League\Flysystem\FileAttributes;
+use League\Flysystem\Local\LocalFilesystemAdapter;
 use League\Flysystem\Filesystem;
+use League\Flysystem\StorageAttributes;
 use org\bovigo\vfs\vfsStream;
 use PHPUnit\Framework\TestCase;
 
@@ -13,7 +15,7 @@ class BasicTest extends TestCase {
         'dir_permissions' => 0700,
         'dir_structure' => [],
         'write_flags' => 0,
-        'link_handling' => Local::DISALLOW_LINKS,
+        'link_handling' => LocalFilesystemAdapter::DISALLOW_LINKS,
         'permissions' => [
             'file' => [
                 'public' => 0660,
@@ -71,26 +73,27 @@ class BasicTest extends TestCase {
 
     /** @test */
     public function setup_new_vfs_directory_structure(){
-        $filesystem = new Filesystem(new VirtualFilesystemAdapter());
-        $filesystem->put('foo/bar/tile1.txt', 'FooBar');
+        $filesystem = new Filesystem($adapter = new VirtualFilesystemAdapter());
+        $filesystem->write('foo/bar/tile1.txt', 'FooBar');
 
         $expected_1 = [
             "type" => "file",
             "path" => "foo/bar/tile1.txt",
             "timestamp" => 1488331955,
-            "size" => 6,
-            "dirname" => "foo/bar",
-            "basename" => "tile1.txt",
-            "extension" => "txt",
-            "filename" => "tile1",
+            "file_size" => 6,
+            //"dirname" => "foo/bar",
+            //"basename" => "tile1.txt",
+            //"extension" => "txt",
+            //"filename" => "tile1",
           ];
-        $actual_1 = $filesystem->listContents('foo/bar')[0];
+        $actual_1 = $filesystem->listContents('foo/bar')->toArray()[0];
 
         collect($expected_1)->each(
           function ($value, $key) use ($actual_1) {
               if ($key === 'timestamp'){
                   return;
               }
+              /** @var FileAttributes $actual_1 */
               $this->assertEquals($value, $actual_1[$key]);
           }
         );
@@ -107,13 +110,13 @@ class BasicTest extends TestCase {
             ]
         ];
 
-        $config = $filesystem->getAdapter()->getConfig();
+        $config = $adapter->getConfig();
         $config['dir_structure'] = $newStructure;
         vfsStream::setup($config['dir_name'], $config['dir_permissions'], $config['dir_structure']);
         // Ensure the old file system is gone.
-        $this->assertFalse($filesystem->has('foo/bar'));
+        $this->assertFalse($filesystem->fileExists('foo/bar'));
 
-        $this->assertTrue($filesystem->has('Core/AbstractFactory/test.php'));
+        $this->assertTrue($filesystem->fileExists('Core/AbstractFactory/test.php'));
         $this->assertEquals('some other text content', $filesystem->read('Core/AbstractFactory/other.php'));
         $this->assertEquals('some bad voodoo', $filesystem->read('Core/somethingwicked.php'));
     }
@@ -121,12 +124,12 @@ class BasicTest extends TestCase {
     /** @test */
     public function setup_new_vfs_from_local_filesystem()
     {
-        $filesystem = new Filesystem(new VirtualFilesystemAdapter());
-        vfsStream::copyFromFileSystem(__DIR__ . '/../resources/filesystemcopy', $filesystem->getAdapter()->getVfsStreamDir(), 3145728);
+        $filesystem = new Filesystem($adapter = new VirtualFilesystemAdapter());
+        vfsStream::copyFromFileSystem(__DIR__ . '/../resources/filesystemcopy', $adapter->getVfsStreamDir(), 3145728);
 
-        $this->assertTrue($filesystem->has('withSubfolders/subfolder2/multipage2.pdf'));
-        $this->assertEquals('application/pdf', $filesystem->getMimetype('withSubfolders/subfolder2/multipage2.pdf'));
-        $this->assertEquals('image/tiff', $filesystem->getMimetype('withSubfolders/subfolder2/one.TIF'));
-        $this->assertEquals('571382', $filesystem->getSize('withSubfolders/subfolder2/singlepage1.pdf'));
+        $this->assertTrue($filesystem->fileExists('withSubfolders/subfolder2/multipage2.pdf'));
+        $this->assertEquals('application/pdf', $filesystem->mimetype('withSubfolders/subfolder2/multipage2.pdf'));
+        $this->assertEquals('image/tiff', $filesystem->mimetype('withSubfolders/subfolder2/one.TIF'));
+        $this->assertEquals('571382', $filesystem->fileSize('withSubfolders/subfolder2/singlepage1.pdf'));
     }
 }

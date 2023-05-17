@@ -7,7 +7,7 @@ use Illuminate\Support\ServiceProvider as ServiceProvider;
 /**
  * @codeCoverageIgnore
  */
-class VfsFilesystemServiceProvider extends  ServiceProvider {
+class VfsFilesystemServiceProvider extends ServiceProvider {
 
     //boot
     public function boot()

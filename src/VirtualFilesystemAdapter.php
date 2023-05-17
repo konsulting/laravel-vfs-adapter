@@ -2,7 +2,8 @@
 
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
-use League\Flysystem\Adapter\Local;
+use League\Flysystem\Local\LocalFilesystemAdapter;
+use League\Flysystem\UnixVisibility\PortableVisibilityConverter;
 use org\bovigo\vfs\vfsStream;
 use org\bovigo\vfs\vfsStreamDirectory;
 use SplFileInfo;
@@ -20,7 +21,8 @@ use SplFileInfo;
  * @property int $link_handling
  * @property array $dirStructure
  */
-class VirtualFilesystemAdapter extends Local {
+class VirtualFilesystemAdapter extends LocalFilesystemAdapter
+{
 
     /**
      * This adapters configuration
@@ -33,21 +35,21 @@ class VirtualFilesystemAdapter extends Local {
      * @var array
      */
     protected $defaultConfig = [
-        'dir_name' => 'root',
+        'dir_name'        => 'root',
         'dir_permissions' => 0755,
-        'dir_structure' => [],
-        'write_flags' => LOCK_EX,
-        'link_handling' => self::DISALLOW_LINKS,
-        'permissions' => [
+        'dir_structure'   => [],
+        'write_flags'     => 0, //LOCAK_EX doesn't work in this scenario
+        'link_handling'   => self::DISALLOW_LINKS,
+        'permissions'     => [
             'file' => [
-                'public' => 0644,
+                'public'  => 0644,
                 'private' => 0600,
             ],
-            'dir' => [
-                'public' => 0755,
+            'dir'  => [
+                'public'  => 0755,
                 'private' => 0700,
-            ]
-        ]
+            ],
+        ],
     ];
 
     /**
@@ -63,7 +65,8 @@ class VirtualFilesystemAdapter extends Local {
     {
         $this->config = collect(array_replace_recursive($this->defaultConfig, $config));
         $this->vfsStreamDir = vfsStream::setup($this->dirName, $this->dirPermissions, $this->dirStructure);
-        parent::__construct($this->vfsStreamDir->url(), $this->writeFlags, $this->linkHandling, $this->permissions);
+
+        parent::__construct($this->vfsStreamDir->url(), PortableVisibilityConverter::fromArray($this->permissions), $this->writeFlags, $this->linkHandling);
     }
 
     /**
@@ -93,7 +96,7 @@ class VirtualFilesystemAdapter extends Local {
     {
         $response = $this->config->get(Str::snake($name));
 
-        if (is_null($response)){
+        if (is_null($response)) {
             throw new \InvalidArgumentException(sprintf('%s is not a valid field.', $name));
         }
 
@@ -116,14 +119,14 @@ class VirtualFilesystemAdapter extends Local {
      * @return void
      * @throws \Exception in case the root directory can not be created
      */
-    protected function ensureDirectory($path)
+    protected function ensureDirectoryExists(string $dirname, int $visibility): void
     {
-        if ($path === $this->dirName){
+        if ($dirname === $this->dirName) {
             // @codeCoverageIgnoreStart
             return;
             // @codeCoverageIgnoreEnd
         }
-        parent::ensureDirectory($path);
+        parent::ensureDirectoryExists($dirname, $visibility);
     }
 
     /**
@@ -131,14 +134,12 @@ class VirtualFilesystemAdapter extends Local {
      * SplFileInfo::getPathname()
      * @param SplFileInfo $file
      */
-    protected function deleteFileInfoObject(SplFileInfo $file)
+    protected function deleteFileInfoObject(SplFileInfo $file): bool
     {
         if ($file->getType() === 'dir') {
-            rmdir($file->getPathname());
-
-            return;
+            return @rmdir($file->getPathname());
         }
 
-        unlink($file->getPathname());
+        return @unlink($file->getPathname());
     }
 }
