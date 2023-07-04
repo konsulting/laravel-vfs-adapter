@@ -1,5 +1,6 @@
 <?php namespace STS\Filesystem;
 
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\Storage;
 use League\Flysystem\Filesystem;
 use Illuminate\Support\ServiceProvider as ServiceProvider;
@@ -21,7 +22,8 @@ class VfsFilesystemServiceProvider extends ServiceProvider {
             $vfsFileSystem = new Filesystem($client);
 
             //return
-            return $vfsFileSystem;
+//            return $vfsFileSystem;
+                        return new FilesystemAdapter($vfsFileSystem, $client);
         });
 
     }//end boot
